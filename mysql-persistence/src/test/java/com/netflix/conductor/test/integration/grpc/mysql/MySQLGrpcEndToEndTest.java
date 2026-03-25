@@ -13,9 +13,12 @@
 package com.netflix.conductor.test.integration.grpc.mysql;
 
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.runner.RunWith;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.junit4.SpringRunner;
+import org.testcontainers.containers.MySQLContainer;
 
 import com.netflix.conductor.client.grpc.EventClient;
 import com.netflix.conductor.client.grpc.MetadataClient;
@@ -24,22 +27,28 @@ import com.netflix.conductor.client.grpc.WorkflowClient;
 import com.netflix.conductor.test.integration.grpc.AbstractGrpcEndToEndTest;
 
 @RunWith(SpringRunner.class)
-@TestPropertySource(
-        properties = {
-            "conductor.db.type=mysql",
-            "conductor.grpc-server.port=8094",
-            "spring.datasource.url=jdbc:tc:mysql:8.0.27:///conductor", // "tc" prefix starts the
-            // MySql
-            // container
-            "spring.datasource.username=root",
-            "spring.datasource.password=root",
-            "spring.datasource.hikari.maximum-pool-size=8",
-            "spring.datasource.hikari.minimum-idle=300000",
-            "conductor.elasticsearch.version=7",
-            "conductor.indexing.type=elasticsearch",
-            "conductor.app.workflow.name-validation.enabled=true"
-        })
 public class MySQLGrpcEndToEndTest extends AbstractGrpcEndToEndTest {
+
+    @ClassRule
+    public static MySQLContainer<?> mySQLContainer =
+            new MySQLContainer<>("mysql:8.0")
+                    .withDatabaseName("conductor")
+                    .withUsername("root")
+                    .withPassword("root");
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("conductor.db.type", () -> "mysql");
+        registry.add("conductor.grpc-server.port", () -> "8094");
+        registry.add("spring.datasource.url", mySQLContainer::getJdbcUrl);
+        registry.add("spring.datasource.username", mySQLContainer::getUsername);
+        registry.add("spring.datasource.password", mySQLContainer::getPassword);
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> "8");
+        registry.add("spring.datasource.hikari.minimum-idle", () -> "300000");
+        registry.add("conductor.elasticsearch.version", () -> "7");
+        registry.add("conductor.indexing.type", () -> "elasticsearch");
+        registry.add("conductor.app.workflow.name-validation.enabled", () -> "true");
+    }
 
     @Before
     public void init() {
